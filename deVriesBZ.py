@@ -22,8 +22,10 @@ import DREAM.Settings.Equations.ColdElectronTemperature as T_cold
 import DREAM.Settings.TimeStepper as TimeStep
 import DREAM.Settings.TransportSettings as Transport
 import DREAM.Settings.Equations.ColdElectrons as ColdElectrons
+import DREAM.Settings.Equations.ColdElectronTemperature as ColdElectronTemperature
 from jProfSim import simProf
 from nRE_Partition import n_re_partition_jprof
+from densitySetup import densitySetup
 
 
 
@@ -38,9 +40,7 @@ from nRE_Partition import n_re_partition_jprof
 #######################################################################################################################
 
 # Grid parameters
-pMax = 1        # maximum momentum in units of m_e*c ORIG 1
-
-tMax = 10        # simulation time in seconds ORIG 1e-3
+tMax = 10       # simulation time in seconds ORIG 1e-3
 Nt = 1000       # number of time steps ORIG 20
 Nr = 1          # number of radial grid points
 
@@ -54,27 +54,24 @@ r0=3                                # Major radius
 Ac=3                                # Plasma cross section
 a = np.sqrt(Ac/np.pi)               # Minor radius [m]
 A0 = 0                              # Advection
-D0 = ((a**2)/4)/18#0.03                           # Diffusion
-print(D0)
-
-print(D0)
+D0 = 0.09#((a**2)/4)/18 #0.03                           # Diffusion
 Ltor = 5e-6                         # Inductance [H]
 
 
 
 # Varying parameters
-t = np.linspace(0,tMax,num=Nt+1)            # Time vector
-Ip = (0.9*np.exp(-1/(10*(t+0.8490))))*1e6     # Total plasma current
-dIpdt = np.gradient(Ip,t)                   # Plasmaströmmens derivata
-Vloop = 0.08+0.77*np.exp(-t)                # Pålagd yttre spänning
-n_e = (0.287*np.exp(-0.8*t**2)+0.023)*1e19      # Kall densitet
-T_e = (0.052+0.748*np.exp(-0.85*t))*1e3            # Kall temperatur
-vth = np.sqrt(2 * T_e * -eq / me)           # Thermal velocity
+t = np.linspace(0,tMax,num=Nt+1)                # Time vector
+Ip = (0.9*np.exp(-1/(10*(t+0.8490))))*1e6       # Total plasma current
+dIpdt = np.gradient(Ip,t)                       # Plasmaströmmens derivata
+Vloop = 0.08+0.77*np.exp(-t)                    # Pålagd yttre spänning
+n_e = (0.287*np.exp(-0.8*t**2)+0.023)*1e19      # Kall densitet | sänk v
+T_e = (0.052+0.748*np.exp(-0.85*t))*1e3         # Kall temperatur
+vth = np.sqrt(2 * T_e * -eq / me)               # Thermal velocity
 
 # Initial values
-I_re = Ip[0]*0.5#6.5e5                        # Runaway current A
-n_re_init=I_re/(abs(eq)*c*Ac)       # Initial runaway density m^-3
-re_share = I_re/Ip[0]               # Percentage of runaway current vs total current
+I_re = Ip[0]*0.55#6.5e5                          # Runaway current A
+n_re_init = I_re/(abs(eq)*c*Ac)                   # Initial runaway density m^-3
+re_share = I_re/Ip[0]                           # Percentage of runaway current vs total current
 print(re_share)
 n_tot = n_e[0]+n_re_init
 
@@ -85,9 +82,9 @@ E = Vres/(2*np.pi*r0)       # E(dIpdt,Vloop)
 
 
 ## Matrices & vectors to be filled ##
-NB = 5
+NB = 10
 Np = 3
-B_v_preset = np.linspace(2.4,10,NB)
+B_v_preset = np.linspace(2.4,24,NB)
 E_v = np.zeros((Nt+1,Np))
 Ip_v = np.zeros((Nt+1,Np))
 I_re_v = np.zeros((Nt+1,Np))
@@ -96,6 +93,7 @@ kappa_v = np.zeros((Nt,Np))
 purity_v = np.linspace(0.99,0.6,Np)
 E_ceff_v = np.zeros((Nt,Np))
 IpDiff_v = np.zeros((Np,NB))
+n_e_v = np.zeros((Nt+1,Np))
 
 
 
@@ -107,13 +105,16 @@ for o in range(0,NB):
         #######################################################################################################################
                                                 # BZ-SWEEP PARAMETERS#
         #######################################################################################################################
+
         ps = 1                       # Starting share of deuterium
-        purity = purity_v[i]          # Deuterium share of ion density in plasma
-        n_ions = n_tot/(4-3*purity)     # Total density of ions with given purity (only if the ions are D and Be)
+        purity = purity_v[i]#*np.exp(-1/t)          # Deuterium share of ion density in plasma
+        n_ions = n_e[0]/(4-3*purity)     # Total density of ions with given purity (only if the ions are D and Be)
                                         # Derived from n_tot = n_Be*4 + n_D, n_ions = n_Be + n_D, and n_D = n_ions*purity
         nD = n_ions * purity            # Deuterium density
         nBe = n_ions - nD               # Beryllium density (n_tot must be consistent)
 
+        r = np.linspace(0, a, 3)
+        nD, nBe = densitySetup(purity, n_e, n_re_init, t, r)  # Sets up density distribution if it is to be prescribed.
 
         #######################################################################################################################
                                                             #SETUP#
@@ -132,6 +133,8 @@ for o in range(0,NB):
 
         # Set E, T, n_cold
         ds.eqsys.T_cold.setPrescribedData(T_e, times=t)
+        #ds.eqsys.T_cold.setPrescribedData(ColdElectronTemperature.TYPE_SELFCONSISTENT)
+        #ds.eqsys.T_cold.setInitialData(T_e[0])
         ds.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)  # Ensures n_cold = n_free - n_re - n_hot (n_hot=0 when hottailgrid is off)
         #ds.eqsys.n_cold.setPrescribedData(density=n_e, times=t)
 
@@ -141,9 +144,18 @@ for o in range(0,NB):
         ds.eqsys.E_field.setBoundaryCondition(bctype=1, V_loop_wall=Vloop, times=t)
 
         # Set ions
-        ds.eqsys.n_i.addIon(name='D', Z=1, iontype=Ions.IONS_PRESCRIBED_FULLY_IONIZED, n=nD)
-        ds.eqsys.n_i.addIon(name='Be', Z=4, iontype=Ions.IONS_PRESCRIBED_FULLY_IONIZED, n=nBe)    #n_tot = n_cold + n_re
-                                                                                                #Vi vill att nB*4 + nD = n_tot
+
+        #D = n_ions * purity
+        #Be = n_ions - nD
+        #print(D)
+
+        #nD=np.zeros((Nt+1,1))
+        #nBe = np.zeros((Nt+1,1))
+        #ds.eqsys.n_i.addIon(name='D', Z=1, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=nD)
+        #ds.eqsys.n_i.addIon(name='Be', Z=4, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=nBe)    #n_tot = n_cold + n_re
+                                                                                             #Vi vill att nB*4 + nD = n_tot
+        ds.eqsys.n_i.addIon(name='D', Z=1, iontype=Ions.IONS_PRESCRIBED_FULLY_IONIZED, n=nD,r=r,t=t)
+        ds.eqsys.n_i.addIon(name='Be', Z=4, iontype=Ions.IONS_PRESCRIBED_FULLY_IONIZED, n=nBe,r=r,t=t)
 
         # Disable runaway grid
         ds.runawaygrid.setEnabled(False)
@@ -176,12 +188,13 @@ for o in range(0,NB):
         #A = np.array([(t,r)])
         #D = np.array([(t,r)])
 
-        ds.eqsys.n_re.transport.prescribeAdvection(ar=A0)#, t=t, r=r)
+        #ds.eqsys.n_re.transport.prescribeAdvection(ar=A0)#, t=t, r=r)
         ds.eqsys.n_re.transport.prescribeDiffusion(drr=D0)#,t=t, r=r)
         ds.eqsys.n_re.transport.setBoundaryCondition(Transport.BC_F_0)
         #ds.eqsys.E_field.setPrescribedData(efield=E[-1,:], radius=r_out)
         #print(E[-1,:])
         ds.eqsys.n_re.setDreicer(Runaways.DREICER_RATE_DISABLED)
+        #ds.eqsys.n_re.setDreicer(Runaways.DREICER_RATE_NEURAL_NETWORK)
         do3 = runiface(ds,'deVries_Output.h5',quiet=False)
 
         #######################################################################################################################
@@ -230,21 +243,25 @@ for o in range(0,NB):
         #######################################################################################################################
         Ip_v[:, i] = (do3.eqsys.I_p[:]).T
         I_re_v[:, i] = (do3.eqsys.n_re[:]*c*Ac*-eq).T
-        purity_v[i] = purity
+        #purity_v[i] = purity
         kappa_v[:, i] = ((do3.other.fluid.Eceff[:]) / (do3.other.fluid.Ecfree[:])).T
         E_v[:, i] = (do3.eqsys.E_field[:]).T
         E_ceff_v[:, i] = (do3.other.fluid.Eceff[:]).T
         II_re_v[:,i] = (abs(do3.eqsys.j_re[:]*(a**2)*np.pi)).T
         print(np.sum((do3.eqsys.I_p[:] - Ip[:])**2))
         IpDiff_v[i,o] = np.sum((do3.eqsys.I_p[:] - Ip[:])**2)
+        n_e_v[:,i] = (do3.eqsys.n_cold[:]).T
 
     #######################################################################################################################
                                                     #BZ PLOTS#
     #######################################################################################################################
 
     plot_Ip_vs_I_re = True
-    plot_kappa = True
-    plot_kappaE_vs_E = False
+    plot_kappa = False
+    plot_E_over_E_ceff = False
+    plot_E_ceff_vs_E = False
+    plot_n_e = False
+    subplot = True
 
     if plot_Ip_vs_I_re == True:
         Colorgradient = np.linspace(1, 0.5, Np)
@@ -274,14 +291,113 @@ for o in range(0,NB):
             plt.xlabel('Time [s]')
         plt.show()
 
-    if plot_kappaE_vs_E == True:
+    if plot_E_ceff_vs_E == True:
         Colorgradient = np.linspace(1,0.2,Np)
         print(kappa_v[:,1])
-        for i in range(0,Np):
+        for i in range(0,Np-1):
             plt.figure(3)
             plt.plot(do3.grid.t,abs(E_v[:,i]),color=Colorgradient[i]*np.array([1,0,0]))
-            plt.plot(do3.grid.t[1:], abs(kappa_v[:,i]*E_ceff_v[:,i]),color=Colorgradient[i]*np.array([0,0,1]))
-            plt.title("kappa*Eceff (blue) vs E (red)")
-            plt.ylabel('kappa')
+            plt.plot(do3.grid.t[1:], abs(E_ceff_v[:,i]),color=Colorgradient[i]*np.array([0,0,1]))
+            plt.title("Eceff (blue) vs E (red)")
+            plt.ylabel('E_ceff or E')
             plt.xlabel('Time [s]')
         plt.show()
+
+    if plot_E_over_E_ceff == True:
+        Colorgradient = np.linspace(1,0.2,Np)
+        for i in range(0,Np):
+            plt.figure(3)
+            print(len(t))
+            print(len(E_v[:,i]))
+            print(len(E_ceff_v[:, i]))
+            plt.plot(do3.grid.t[0:-1],abs(E_v[0:-1,i])/abs(E_ceff_v[:,i]),color=Colorgradient[i]*np.array([1,0,0]))
+            plt.title("Significant primary generation requires E/Ec > 10")
+            plt.ylabel('E/E_ceff')
+            plt.xlabel('Time [s]')
+        plt.show()
+
+    if plot_n_e == True:
+        Colorgradient = np.linspace(1, 0.2, Np)
+        for i in range(0,Np):
+            plt.figure(3)
+            plt.plot(do3.grid.t, n_e_v[:,i], color=Colorgradient[i] * np.array([1, 0, 0]))
+            plt.title("Densities. B = " + str(B) + ", and purity [" + str(purity_v[0]) + "," + str(purity_v[-1]) + "]. \n Darker means more impurity (beryllium).")
+            plt.ylabel('Density [m^(-3)]')
+            plt.xlabel('Time [s]')
+            plt.figlegend(('n_cold','n_cold','n_cold' ), loc='upper right')
+
+        plt.show()
+
+    #######################################################################################################################
+                                                        #SUBPLOT SETUP#
+    #######################################################################################################################
+
+    if subplot == True:
+        plt.subplot(5, 1, 1)
+
+        Colorgradient = np.linspace(1, 0.5, Np)
+        for i in range(0, Np):
+            #plt.subplot(5,5,1)
+            plt.plot(do3.grid.t, Ip_v[:, i].T, color=Colorgradient[i] * np.array([1, 0, 0]))
+            plt.plot(do3.grid.t, I_re_v[:, i].T, color=Colorgradient[i] * np.array([0, 1, 0]))
+            # plt.plot(do3.grid.t, II_re_v[:, i].T, color=Colorgradient[i] * np.array([0, 0, 1]))
+            string = "a"
+            #plt.title("B = " + str(B) + ", and purity [" + str(purity_v[0]) + "," + str(
+                #purity_v[-1]) + "]. \n Darker means more impurity.")
+            plt.ylabel('Ip [A]')
+            plt.xlabel('Time [s]')
+            plt.figlegend(('Ip', 'Ire'),
+                          loc='upper right', bbox_to_anchor=(0.9, 0.88))
+        x = plt.plot(t, Ip, color=[1, 0.8, 0])
+        plt.figlegend(x, "Prescribed Ip", loc='lower left')
+
+
+
+        Colorgradient = np.linspace(1, 0.1, Np)
+        for i in range(0, Np):
+            plt.subplot(5,1,2)
+            plt.plot(do3.grid.t[1:], kappa_v[:, i], color=Colorgradient[i] * np.array([1, 0, 0]))
+            string = "a"
+            #plt.title("\kappa, B = " + str(B) + ", and purity [" + str(purity_v[0]) + "," + str(
+                #purity_v[-1]) + "]. \n Darker means more impurity (beryllium).")
+            plt.ylabel('kappa')
+            plt.xlabel('Time [s]')
+
+
+
+        Colorgradient = np.linspace(1, 0.2, Np)
+        print(kappa_v[:, 1])
+        for i in range(0, Np - 1):
+            plt.subplot(5,1,3)
+            plt.plot(do3.grid.t, abs(E_v[:, i]), color=Colorgradient[i] * np.array([1, 0, 0]))
+            plt.plot(do3.grid.t[1:], abs(E_ceff_v[:, i]), color=Colorgradient[i] * np.array([0, 0, 1]))
+            #plt.title("Eceff (blue) vs E (red)")
+            plt.ylabel('E_ceff or E')
+            plt.xlabel('Time [s]')
+
+
+
+        Colorgradient = np.linspace(1, 0.2, Np)
+        for i in range(0, Np):
+            plt.subplot(5,1,4)
+            print(len(t))
+            print(len(E_v[:, i]))
+            print(len(E_ceff_v[:, i]))
+            plt.plot(do3.grid.t[0:-1], abs(E_v[0:-1, i]) / abs(E_ceff_v[:, i]),
+                     color=Colorgradient[i] * np.array([1, 0, 0]))
+            #plt.title("Significant primary generation requires E/Ec > 10")
+            plt.ylabel('E/E_ceff')
+            plt.xlabel('Time [s]')
+
+
+
+        Colorgradient = np.linspace(1, 0.2, Np)
+        for i in range(0, Np):
+            plt.subplot(5,1,5)
+            plt.plot(do3.grid.t, n_e_v[:, i], color=Colorgradient[i] * np.array([1, 0, 0]))
+            #plt.title("Densities. B = " + str(B) + ", and purity [" + str(purity_v[0]) + "," + str(
+                #purity_v[-1]) + "]. \n Darker means more impurity (beryllium).")
+            plt.ylabel('Density [m^(-3)]')
+            plt.xlabel('Time [s]')
+            plt.figlegend(('n_cold', 'n_cold', 'n_cold'), loc='upper right')
+    plt.show()
