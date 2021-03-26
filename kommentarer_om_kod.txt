@@ -1,0 +1,19 @@
+pr - prescribed E
+sc - self consisent E
+
+För Prescribed E koderna
+
+pr_de_Vries.py kör ett sweep över D0 samt över I_re0 för att finna vilket D0 som ger mest konstant ström i slutet med hjälp av varians och vilken I_re0 som bäst dominerar de Vries I_p-data för både E\sim V_loop och E\sim V_res. I_p från de Vries, I_re från bästa I_re0 från både V_loop och V_res plottas tillsammans. 
+
+pr_DREAM_run.py kör DREAM-inställningarna
+
+
+För Self consistent E
+
+sc_de_Vries.py har ett D som är tidsberoende och består av två arctantermer. Det görs ett sweep över I_re0 och dessa plottas tillsammans med de Vries I_p, beräknat I_p plottas med de Vries I_p, kappa plottas och GammaAva plottas för alla I_re0
+
+sc_de_Vries_testa_D0.py sweepar över I_re0 och sedan D0 för att för varje I_re0 plotta alla I_re beroende av D0 (beräknad med DREAM) samt de Vries I_p och sparar dessa automatiskt. (se plt.savefig för automatisk sparning)
+
+sc_DREAM_run.py kör DREAM-inställningarna för konstant D (dvs D0)
+
+sc_DREAM_run.py kör DREAM-inställningarna för tidsvarierande D
