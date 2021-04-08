@@ -154,11 +154,20 @@ for a_D in a_D_for:
 
 #### Manage result ####
 # Save data
-np.savetxt('pr_6apr/time_plots/Z_eff_list.txt', Z_eff_list, delimiter=',')
-np.savetxt('pr_6apr/time_plots/D0_bra_list.txt', D0_bra_list, delimiter=',')
-np.savetxt('pr_6apr/time_plots/I_re0_bra_list.txt', I_re0_bra_list, delimiter=',')
+np.savetxt('pr_8apr/time_plots/data/Z_eff.txt', Z_eff_list, delimiter=',')
+np.savetxt('pr_8apr/time_plots/data/D0.txt', D0_bra_list, delimiter=',')
+np.savetxt('pr_8apr/time_plots/data/I_re0.txt', I_re0_bra_list, delimiter=',')
 for do, Z_eff in zip(do_bra_list, Z_eff_list):
-    do.save('output_de_Vries_Z='+str(Z_eff)+'.h5')
+    n_re_bra_list = do.eqsys.n_re[:]
+    np.savetxt('pr_8apr/time_plots/data/n_re_Z_eff='+str(round(Z_eff,1))+'.txt', n_re_bra_list, delimiter=',')
+    I_p_bra_list = do.eqsys.I_p[:]
+    np.savetxt('pr_8apr/time_plots/data/I_p_Z_eff=' + str(round(Z_eff, 1)) + '.txt', I_p_bra_list, delimiter=',')
+    E_c_eff_bra_list = do.other.fluid.Eceff[:]
+    np.savetxt('pr_8apr/time_plots/data/E_c_eff_Z_eff=' + str(round(Z_eff, 1)) + '.txt', E_c_eff_bra_list, delimiter=',')
+    E_c_free_bra_list = do.other.fluid.Ecfree[:]
+    np.savetxt('pr_8apr/time_plots/data/E_c_free_Z_eff=' + str(round(Z_eff, 1)) + '.txt', E_c_free_bra_list, delimiter=',')
+    GammaAva_bra_list = do.other.fluid.GammaAva[:]
+    np.savetxt('pr_8apr/time_plots/data/GammaAva_Z_eff=' + str(round(Z_eff, 1)) + '.txt', GammaAva_bra_list,delimiter=',')
 
 # Plot best time-dependant parameters
 legend_a_D = []      # List for a_D to be shown in legend
