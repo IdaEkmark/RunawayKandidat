@@ -163,7 +163,7 @@ for a_D in a_D_for:
 np.savetxt('pr_6apr/Z_D0_Ire0/Z_eff_list.txt', Z_eff_list, delimiter=',')
 np.savetxt('pr_6apr/Z_D0_Ire0/D0_bra_list.txt', D0_bra_list, delimiter=',')
 np.savetxt('pr_6apr/Z_D0_Ire0/I_re0_bra_list.txt', I_re0_bra_list, delimiter=',')
-np.savetxt('Sparad_data_sc/kappa.txt', kappa, delimiter=',')
+np.savetxt('pr_6apr/Z_D0_Ire0/kappa.txt', kappa, delimiter=',')
 
 # Plot D0 as function of Z_eff and I_re0 as function of D0 and as function of Z_eff
 plt.plot(Z_eff_list,D0_bra_list)
