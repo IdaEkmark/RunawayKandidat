@@ -16,6 +16,8 @@ import DREAM.Settings.TransportSettings as Transport
 import DREAM.Settings.Equations.ColdElectrons as ColdElectrons
 import DREAM.Settings.Equations.ColdElectronTemperature as ColdElectronTemperature
 import DREAM.Settings.Equations.ElectricField as ElectricField
+import DREAM.Settings.Equations.IonSpecies as Ions
+
 #### Physical parameters ####
 
 # Universal constants
@@ -52,6 +54,10 @@ V_loop_wall = 1
 E_initial = 0 #V/m
 T_initial = 50 #eV
 
+########################################################################################################################
+                                                    #SIMULATION ONE#
+########################################################################################################################
+
 ds_c = DREAMSettings()
 ds_c.collisions.collfreq_type = Collisions.COLLFREQ_TYPE_PARTIALLY_SCREENED #Är detta rätt?
 
@@ -62,6 +68,7 @@ ds_c.eqsys.E_field.setBoundaryCondition(ElectricField.BC_TYPE_PRESCRIBED, V_loop
 ds_c.eqsys.T_cold.setPrescribedData(T_initial, times=t)
 ds_c.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)
 
+ds_c.eqsys.n_i.setIonization(Ions.IONIZATION_MODE_FLUID)
 ds_c.eqsys.n_i.addIon(name='D', Z=Z_D, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_D)
 ds_c.eqsys.n_i.addIon(name='B', Z=Z_B, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_B)
 
@@ -90,11 +97,31 @@ do_c = runiface(ds_c, 'output_SELFCONSISTENT.h5', quiet=False)
 #ds_c.eqsys.n_re.transport.prescribeDiffusion(drr=D, t=t_D, r=r_D)
 #ds_c.eqsys.n_re.transport.setBoundaryCondition(Transport.BC_F_0)
 
-##########
+########################################################################################################################
+                                                    #SIMULATION TWO#
+########################################################################################################################
+ds=ds_c
+
 ds.eqsys.T_cold.setType(ColdElectronTemperature.TYPE_SELFCONSISTENT)
 ds.eqsys.T_cold.setInitialProfile(T_cold=T_initial)
 ds.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)
 
-ds.solver.setType(Solver.NONLINEAR)
+ds.eqsys.n_i.addIon(name='D', Z=Z_D, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_D)
+ds.eqsys.n_i.addIon(name='B', Z=Z_B, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_B)
+
+ds = DREAMSettings(ds_c)
+
+ds.fromOutput(do_c, ignore=['E_field'])
+ds.save('SELFCONSISTENT_SETTINGS2.h5')
+
+do = runiface(ds, 'output_SELFCONSISTENT2.h5', quiet=False)
+
+########################################################################################################################
+                                                    #PLOTS#
+########################################################################################################################
+do_c.eqsys.E_field.plot()
+do.eqsys.E_field.plot()
+
+plt.show()
 
 
