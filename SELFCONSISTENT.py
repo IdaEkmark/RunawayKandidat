@@ -1,7 +1,6 @@
 
 import numpy as np
 import sys
-from scipy import integrate
 import matplotlib.pyplot as plt
 
 
@@ -36,10 +35,10 @@ a      = 2                   # Minor radius [m]
 B      = 5.3                 # Magnetic field [T]
 
 # Time and radial parameters
-tMax_c = 1e-3                           # Simulation time [s]
-Nt_c   = 10000                         # Number of time steps
-tMax = 1e-3                           # Simulation time [s]
-Nt   = 10000                         # Number of time steps
+tMax_c = 0.5                           # Simulation time [s]
+Nt_c   = 500000                         # Number of time steps
+tMax = 1                           # Simulation time [s]
+Nt   = 100000                         # Number of time steps
 Nr   = 1                             # Number of radial steps
 t    = np.linspace(0,tMax,num=Nt+1)  # Time vector for time depending data
 
@@ -47,13 +46,13 @@ t    = np.linspace(0,tMax,num=Nt+1)  # Time vector for time depending data
 #Ions
 Z_D = 1
 Z_B = 4
-a_D = 0.9  # Proportion of ions that are deuterium
+a_D = 1  # Proportion of ions that are deuterium
 a_B = 1 - a_D  # Proportion of ions that are beryllium
 n_tot = 1.01e20  # Total ion density
 n_D = a_D * n_tot  # Deuterium density
 n_B = a_B * n_tot
 
-V_loop_wall = 1
+V_loop_wall = 5
 E_initial = 0 #V/m
 T_initial = 50 #eV
 
@@ -77,7 +76,7 @@ ds_c.eqsys.n_i.addIon(name='B', Z=Z_B, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, 
 
 ds_c.eqsys.n_re.setAvalanche(avalanche=Runaways.AVALANCHE_MODE_FLUID_HESSLOW)
 
-ds_c.eqsys.n_re.setDreicer(Runaways.DREICER_RATE_NEURAL_NETWORK)
+ds_c.eqsys.n_re.setDreicer(Runaways.DREICER_RATE_CONNOR_HASTIE)
 
 ds_c.hottailgrid.setEnabled(False)
 ds_c.runawaygrid.setEnabled(False)
@@ -116,19 +115,33 @@ ds.eqsys.T_cold.setType(ColdElectronTemperature.TYPE_SELFCONSISTENT)
 ds.eqsys.T_cold.setInitialProfile(T_initial)
 ds.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)
 
-ds_c.timestep.setTmax(tMax)
-ds_c.timestep.setNt(Nt)
+ds.timestep.setTmax(tMax)
+ds.timestep.setNt(Nt)
 
 do = runiface(ds, 'output_SELFCONSISTENT2.h5', quiet=False)
 
 ########################################################################################################################
                                                     #PLOTS#
 ########################################################################################################################
+
 do_c.eqsys.E_field.plot()
+plt.show()
+
+
+do_c.eqsys.n_cold.plot()
+plt.show()
+
+do.eqsys.n_cold.plot()
+plt.show()
+
+do.eqsys.T_cold.plot()
+plt.show()
+
+#do_c.eqsys.E_field.plot()
 do.eqsys.E_field.plot()
-E=do_c.eqsys.E_field[:]
-C=np.linspace(E[-1],E[-1],num=len(E))
-t=np.linspace(0,tMax,num=len(E))
-plt.plot(t,C)
+#E=do_c.eqsys.E_field[:]
+#C=np.linspace(E[-1],E[-1],num=len(E))
+#t=np.linspace(0,tMax,num=len(E))
+#plt.plot(t,C)
 
 plt.show()
