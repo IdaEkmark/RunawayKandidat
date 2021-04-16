@@ -1,8 +1,9 @@
+
 import numpy as np
 import sys
 from scipy import integrate
 import matplotlib.pyplot as plt
-from DREAM_run import run_DREAM
+
 
 sys.path.append('../../py/')
 
@@ -26,27 +27,29 @@ c   = 299792458       # Speed of light [m/s]
 m_e = 9.10938356e-31  # Electron mass [kg]
 
 # Assumed constants in de Vries
-A_c    = 3                   # Plasma cross section [m^2]
-L_tor  = 5e-6                # Inductance [H]
-r_0    = 3                   # Major radius [m]
-a      = np.sqrt(A_c/np.pi)  # Minor radius [m]
-tau_RE = 18                  # Confinement time [s]
-A0     = 0                   # Advection [???]
-B      = 2.4                 # Magnetic field [T]
+#A_c    = 3                   # Plasma cross section [m^2]
+#L_tor  = 5e-6                # Inductance [H]
+r_0    = 6.2                 # Major radius [m]
+a      = 2                   # Minor radius [m]
+#tau_RE = 18                  # Confinement time [s]
+#A0     = 0                   # Advection [???]
+B      = 5.3                 # Magnetic field [T]
 
 # Time and radial parameters
-tMax = 8.5                           # Simulation time [s]
-Nt   = 1000                         # Number of time steps
+tMax_c = 1e-3                           # Simulation time [s]
+Nt_c   = 10000                         # Number of time steps
+tMax = 1e-3                           # Simulation time [s]
+Nt   = 10000                         # Number of time steps
 Nr   = 1                             # Number of radial steps
 t    = np.linspace(0,tMax,num=Nt+1)  # Time vector for time depending data
 
 
 #Ions
 Z_D = 1
-Z_B = 2
-a_D = (Z_B - 1.1) / (Z_B - Z_D)  # Proportion of ions that are deuterium
+Z_B = 4
+a_D = 0.9  # Proportion of ions that are deuterium
 a_B = 1 - a_D  # Proportion of ions that are beryllium
-n_tot = 1e19  # Total ion density
+n_tot = 1.01e20  # Total ion density
 n_D = a_D * n_tot  # Deuterium density
 n_B = a_B * n_tot
 
@@ -87,8 +90,8 @@ ds_c.radialgrid.setNr(Nr)
 
 ds_c.solver.setType(Solver.NONLINEAR)
 
-ds_c.timestep.setTmax(tMax)
-ds_c.timestep.setNt(Nt)
+ds_c.timestep.setTmax(tMax_c)
+ds_c.timestep.setNt(Nt_c)
 
 ds_c.other.include('fluid')
 ds_c.save('settings_SELFCONSISTENT.h5')
@@ -100,19 +103,21 @@ do_c = runiface(ds_c, 'output_SELFCONSISTENT.h5', quiet=False)
 ########################################################################################################################
                                                     #SIMULATION TWO#
 ########################################################################################################################
-ds=ds_c
 
-ds.eqsys.T_cold.setType(ColdElectronTemperature.TYPE_SELFCONSISTENT)
-ds.eqsys.T_cold.setInitialProfile(T_cold=T_initial)
-ds.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)
-
-ds.eqsys.n_i.addIon(name='D', Z=Z_D, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_D)
-ds.eqsys.n_i.addIon(name='B', Z=Z_B, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_B)
+#ds.eqsys.n_i.addIon(name='D', Z=Z_D, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_D)
+#ds.eqsys.n_i.addIon(name='B', Z=Z_B, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_B)
 
 ds = DREAMSettings(ds_c)
 
-ds.fromOutput(do_c, ignore=['E_field'])
+ds.fromOutput('output_SELFCONSISTENT.h5')#, ignore=['E_field','T_cold','n_cold','n_re'])
 ds.save('SELFCONSISTENT_SETTINGS2.h5')
+
+ds.eqsys.T_cold.setType(ColdElectronTemperature.TYPE_SELFCONSISTENT)
+ds.eqsys.T_cold.setInitialProfile(T_initial)
+ds.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)
+
+ds_c.timestep.setTmax(tMax)
+ds_c.timestep.setNt(Nt)
 
 do = runiface(ds, 'output_SELFCONSISTENT2.h5', quiet=False)
 
@@ -121,7 +126,9 @@ do = runiface(ds, 'output_SELFCONSISTENT2.h5', quiet=False)
 ########################################################################################################################
 do_c.eqsys.E_field.plot()
 do.eqsys.E_field.plot()
+E=do_c.eqsys.E_field[:]
+C=np.linspace(E[-1],E[-1],num=len(E))
+t=np.linspace(0,tMax,num=len(E))
+plt.plot(t,C)
 
 plt.show()
-
-
