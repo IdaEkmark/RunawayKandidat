@@ -29,9 +29,10 @@ hours = time.localtime()[3]
 minutes = time.localtime()[4]
 mmdd = str(month) + '_' + str(day)
 sshh = str(hours) + ':' + str(minutes)
-parent_folder = 'aD06SC_' + mmdd
+parent_folder = 'aaaaD06SC_' + mmdd
 current_directory = os.getcwd()
-os.mkdir(current_directory + '/' + parent_folder)
+if os.path.isdir(parent_folder) == False:
+    os.mkdir(current_directory + '/' + parent_folder)
 
 
 
@@ -114,7 +115,7 @@ for V_loop_wall in V_loop_wall_list:
     ####################################################################################################################
                                                                      #Is created in current folder.
     child_folder = 'aD' + str(round(a_D, 1)) + '_Vloop' + str(round(V_loop_wall, 1)) + '_T' + str(round(T_initial, 1)) + '_' + sshh   #Inside parent-folder. Add something to this string if you're repeating a measurement.
-    
+
     os.mkdir(current_directory + '/' + parent_folder + '/' + child_folder)
 
 
