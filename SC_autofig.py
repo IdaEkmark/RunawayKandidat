@@ -29,7 +29,7 @@ hours = time.localtime()[3]
 minutes = time.localtime()[4]
 mmdd = str(month) + '_' + str(day)
 sshh = str(hours) + ':' + str(minutes)
-parent_folder = 'aaaaD06SC_' + mmdd
+parent_folder = 'SC_' + mmdd
 current_directory = os.getcwd()
 if os.path.isdir(parent_folder) == False:
     os.mkdir(current_directory + '/' + parent_folder)
@@ -113,7 +113,7 @@ for V_loop_wall in V_loop_wall_list:
     ####################################################################################################################
                                              #PLOTS INSIDE FOR-LOOP#
     ####################################################################################################################
-                                                                     #Is created in current folder.
+    ## Make Child Folder ##
     child_folder = 'aD' + str(round(a_D, 1)) + '_Vloop' + str(round(V_loop_wall, 1)) + '_T' + str(round(T_initial, 1)) + '_' + sshh   #Inside parent-folder. Add something to this string if you're repeating a measurement.
 
     os.mkdir(current_directory + '/' + parent_folder + '/' + child_folder)
@@ -178,7 +178,7 @@ np.savetxt('Sparad_data_sc/V_loop_wall.txt', V_loop_wall_list, delimiter=',')
 np.savetxt('Sparad_data_sc/T_c_max.txt', T_c_list_max, delimiter=',')
 np.savetxt('Sparad_data_sc/T_c.txt', T_c_list, delimiter=',')
 
-for vloopindex in [0,1,2,3,4,5,6]:
+for vloopindex in [0,1,2,3,4]:
     T = T_c_list[vloopindex,:]
     plt.plot(t,T)
 plt.show()
