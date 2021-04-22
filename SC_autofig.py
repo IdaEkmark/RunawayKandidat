@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 sys.path.append('../../py/')
 
 from DREAM.DREAMSettings import DREAMSettings
+from DREAM.DREAMOutput import DREAMOutput
 from DREAM import runiface
 import DREAM.Settings.Equations.IonSpecies as Ions
 import DREAM.Settings.Equations.RunawayElectrons as Runaways
@@ -21,7 +22,16 @@ from setups import setup2
 import time
 import os
 
-
+##Make Parent Folder##
+month = time.localtime()[1]
+day = time.localtime()[2]
+hours = time.localtime()[3]
+minutes = time.localtime()[4]
+mmdd = str(month) + '_' + str(day)
+sshh = str(hours) + ':' + str(minutes)
+parent_folder = 'aD06SC_' + mmdd
+current_directory = os.getcwd()
+os.mkdir(current_directory + '/' + parent_folder)
 
 
 
@@ -53,14 +63,14 @@ t    = np.linspace(0,tMax,num=Nt+1)  # Time vector for time depending data
 #Ions
 Z_D = 1
 Z_B = 4
-a_D = 0.9  # Proportion of ions that are deuterium
+a_D = 0.6  # Proportion of ions that are deuterium
 a_B = 1 - a_D  # Proportion of ions that are beryllium
 n_tot = 1.01e20  # Total ion density
 n_D = a_D * n_tot  # Deuterium density
 n_B = a_B * n_tot
 
-V_loop_wall_list = np.linspace(5, 10, 3)
-#E_initial = 0 #V/m
+V_loop_wall_list = np.linspace(10, 20, 5)
+E_initial = 0 #V/m
 T_initial = 25 #eV
 T_c_list = np.zeros((len(V_loop_wall_list), Nt+1))
 T_c_list_max = np.zeros((len(V_loop_wall_list), 1))
@@ -102,62 +112,63 @@ for V_loop_wall in V_loop_wall_list:
     ####################################################################################################################
                                              #PLOTS INSIDE FOR-LOOP#
     ####################################################################################################################
-    month = time.localtime()[1]
-    day = time.localtime()[2]
-    hours = time.localtime()[3]
-    minutes = time.localtime()[4]
-    mmdd = str(month) + '_' + str(day)
-    sshh = str(hours) + ':' + str(minutes)
-    parent_folder = 'SC_' + mmdd                                                                 #Is created in current folder.
+                                                                     #Is created in current folder.
     child_folder = 'aD' + str(round(a_D, 1)) + '_Vloop' + str(round(V_loop_wall, 1)) + '_T' + str(round(T_initial, 1)) + '_' + sshh   #Inside parent-folder. Add something to this string if you're repeating a measurement.
-    current_directory = os.getcwd()
+    
     os.mkdir(current_directory + '/' + parent_folder + '/' + child_folder)
 
-    plt.figure(1)
-    do_c.eqsys.n_i['D'].plot()
+
+    ax = do_c.eqsys.n_i['D'].plot()
     plt.savefig(parent_folder + '/' + child_folder + '/nD_c')
+    ax.clear()
 
-    plt.figure(2)
-    do_c.eqsys.n_i['B'].plot()
+    
+    ax = do_c.eqsys.n_i['B'].plot()
     plt.savefig(parent_folder + '/' + child_folder + '/nB_c')
+    ax.clear()
 
-    plt.figure(3)
-    do.eqsys.I_p.plot()
-    plt.plot(t, np.linspace(1, 1, Nt + 1) * 15e6)  # Want to compare to plasma current at ITER
+    
+    ax = do.eqsys.I_p.plot()
+    ax2 = plt.plot(t, np.linspace(1, 1, Nt + 1) * 15e6)  # Want to compare to plasma current at ITER
     plt.legend(['I_p', 'ITER I_p'])
     plt.savefig(parent_folder + '/' + child_folder + '/Ip')
+    ax.clear()
+    ax2.clear()
 
-    plt.figure(4)
-    do.eqsys.n_re.plot()
+    ax = do.eqsys.n_re.plot()
     plt.savefig(parent_folder + '/' + child_folder + '/nre')
+    ax.clear()
 
-    plt.figure(5)
-    do.eqsys.n_i['D'].plot()
+
+    ax = do.eqsys.n_i['D'].plot()
     plt.savefig(parent_folder + '/' + child_folder + '/nD')
+    ax.clear()
 
-    plt.figure(6)
-    do.eqsys.n_i['B'].plot()
+
+    ax = do.eqsys.n_i['B'].plot()
     plt.savefig(parent_folder + '/' + child_folder + '/nB')
+    ax.clear()
 
-    plt.figure(7)
-    do.eqsys.T_cold.plot()
+    
+    ax = do.eqsys.T_cold.plot()
     plt.savefig(parent_folder + '/' + child_folder + '/T')
-
-    plt.figure(8)
-    do_c.eqsys.E_field.plot()
+    ax.clear()
+    
+    ax = do_c.eqsys.E_field.plot()
     plt.savefig(parent_folder + '/' + child_folder + '/Einit')
-
-    plt.figure(9)
-    do_c.eqsys.n_cold.plot()
+    ax.clear()
+    
+    ax = do_c.eqsys.n_cold.plot()
     plt.savefig(parent_folder + '/' + child_folder + '/ncoldinit')
-
-    plt.figure(10)
-    do.eqsys.n_cold.plot()
+    ax.clear()
+    
+    ax = do.eqsys.n_cold.plot()
     plt.savefig(parent_folder + '/' + child_folder + '/ncold')
-
-    plt.figure(11)
-    do.eqsys.E_field.plot()
+    ax.clear()
+    
+    ax = do.eqsys.E_field.plot()
     plt.savefig(parent_folder + '/' + child_folder + '/E')
+    ax.clear()
 ########################################################################################################################
                                             #PLOTS/DATA OUTSIDE FOR-LOOP#
 ########################################################################################################################
@@ -166,10 +177,11 @@ np.savetxt('Sparad_data_sc/V_loop_wall.txt', V_loop_wall_list, delimiter=',')
 np.savetxt('Sparad_data_sc/T_c_max.txt', T_c_list_max, delimiter=',')
 np.savetxt('Sparad_data_sc/T_c.txt', T_c_list, delimiter=',')
 
-for vloopindex in [0,1,2]:
+for vloopindex in [0,1,2,3,4,5,6]:
     T = T_c_list[vloopindex,:]
     plt.plot(t,T)
 plt.show()
+
 
 
 
