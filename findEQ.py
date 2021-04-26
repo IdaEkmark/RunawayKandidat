@@ -16,7 +16,7 @@ import DREAM.Settings.Equations.ColdElectrons as ColdElectrons
 import DREAM.Settings.Equations.ColdElectronTemperature as ColdElectronTemperature
 import DREAM.Settings.Equations.ElectricField as ElectricField
 import DREAM.Settings.Equations.IonSpecies as Ions
-from generate_current_profile import generate_current_profile_fun
+from generate_Teq import generate_current_profile_fun
 
 #### Physical parameters ####
 
@@ -26,13 +26,12 @@ c   = 299792458       # Speed of light [m/s]
 m_e = 9.10938356e-31  # Electron mass [kg]
 
 # Assumed constants in de Vries
-#A_c    = 3                   # Plasma cross section [m^2]
-#L_tor  = 5e-6                # Inductance [H]
-r_0    = 6.2                 # Major radius [m]
-a      = 2                   # Minor radius [m]
+A_c    = 3                   # Plasma cross section [m^2]
+r_0    = 3#6.2                 # Major radius [m]
+a      = np.sqrt(A_c/np.pi) #2                  # Minor radius [m]
 #tau_RE = 18                  # Confinement time [s]
 #A0     = 0                   # Advection [???]
-B      = 5.3                 # Magnetic field [T]
+B      = 2.4#5.3                # Magnetic field [T]
 
 # Time and radial parameters
 tMax_c = 0.5                           # Simulation time [s]
@@ -46,9 +45,9 @@ t    = np.linspace(0,tMax,num=Nt+1)  # Time vector for time depending data
 #Ions
 Z_D = 1
 Z_B = 4
-a_D = 0.6  # Proportion of ions that are deuterium
+a_D = 0.99  # Proportion of ions that are deuterium
 a_B = 1 - a_D  # Proportion of ions that are beryllium
-n_tot = 1.01e20  # Total ion density
+n_tot = 5e18  # Total ion density
 n_D = a_D * n_tot  # Deuterium density
 n_B = a_B * n_tot
 
@@ -58,7 +57,7 @@ T_initial = 5000 #eV
 T_c_list = np.zeros((len(V_loop_wall), Nt+1))
 T_c_list_max = np.zeros((len(V_loop_wall), 1))
 #T_c_list_max = []
-Ip_wish = 15e6          #Önskat Ip
+Ip_wish = 3.2e6          #Önskat Ip
 # Välj Ebase så att Ip = önskat värde (kanske 15 MA för ITER) vid T=Tbase
 current_profile = np.linspace(1,1,2)
 radie = np.linspace(0,a,2)
@@ -70,15 +69,20 @@ do,Teq,Eeq = generate_current_profile_fun(Ip_wish,current_profile,radie,T_initia
                                                     #PLOTS#
 ########################################################################################################################
 ax = do.eqsys.I_p.plot()
-ax2 = plt.plot(t, np.linspace(1, 1, Nt + 1) * 15e6)  # Want to compare to plasma current at ITER
+ax2 = plt.plot(t, np.linspace(1, 1, Nt + 1) * Ip_wish)  # Want to compare to plasma current at ITER
 plt.legend(['I_p', 'ITER I_p'])
+plt.xlim(0, tMax)
+plt.ylim(0,5e6)
 plt.show()
 
 
 ax = do.eqsys.T_cold.plot()
 ax2 = plt.plot(t, np.linspace(1, 1, Nt + 1) * Teq)  # Want to compare to plasma current at ITER
+plt.xlim(0, tMax)
+plt.ylim(0,6000)
 plt.show()
 
 ax = do.eqsys.E_field.plot()
 ax2 = plt.plot(t, np.linspace(1, 1, Nt + 1) * Eeq)  # Want to compare to plasma current at ITER
+plt.ylim(bottom=0)
 plt.show()
