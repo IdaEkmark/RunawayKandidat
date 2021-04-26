@@ -57,7 +57,7 @@ def setup1(E_initial, T_initial, V_loop_wall, t, Z_D, Z_B, n_D, n_B, B, a, r_0, 
 
     return ds_c
 
-def setup2(ds_c, tMax, Nt, E_initial, T_initial, V_loop_wall, t, Z_D, Z_B, n_D, n_B, B, a, r_0, Nr, tMax_c, Nt_c):
+def setup2(ds_c, tMax, Nt, E_initial, T_initial, V_loop_wall, t, Z_D, Z_B, n_D, n_B, B, a, r_0, Nr):
 
     ds = DREAMSettings(ds_c)
     do_c = DREAMOutput('output_SELFCONSISTENT1' + '.h5')
@@ -75,5 +75,79 @@ def setup2(ds_c, tMax, Nt, E_initial, T_initial, V_loop_wall, t, Z_D, Z_B, n_D, 
     ds.timestep.setTmax(tMax)
     ds.timestep.setNt(Nt)
 
+
+    return ds
+
+def setupEQ(E,T_initial, tMax, Nt, n_D, n_B, B, a, r_0, Nr):
+
+    ds = DREAMSettings()
+    ds.collisions.collfreq_type = Collisions.COLLFREQ_TYPE_PARTIALLY_SCREENED  # Är detta rätt?
+
+    ds.eqsys.E_field.setPrescribedData(E)
+
+    ds.eqsys.T_cold.setType(ColdElectronTemperature.TYPE_SELFCONSISTENT)
+    ds.eqsys.T_cold.setInitialProfile(T_initial)
+    ds.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)
+
+    ds.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)
+
+    ds.eqsys.n_i.setIonization(Ions.IONIZATION_MODE_FLUID)
+    ds.eqsys.n_i.addIon(name='D', Z=1, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_D)
+    ds.eqsys.n_i.addIon(name='B', Z=4, iontype=Ions.IONS_DYNAMIC_FULLY_IONIZED, n=n_B)
+
+    ds.eqsys.n_re.setAvalanche(avalanche=Runaways.AVALANCHE_MODE_FLUID_HESSLOW)
+
+    ds.eqsys.n_re.setDreicer(Runaways.DREICER_RATE_CONNOR_HASTIE)
+
+    ds.hottailgrid.setEnabled(False)
+    ds.runawaygrid.setEnabled(False)
+
+    ds.radialgrid.setB0(B)  # , times=t)
+    ds.radialgrid.setMinorRadius(a)
+    ds.radialgrid.setMajorRadius(r_0)
+    ds.radialgrid.setWallRadius(a)
+    ds.radialgrid.setNr(Nr)
+
+    ds.solver.setType(Solver.NONLINEAR)
+
+    ds.timestep.setTmax(tMax)
+    ds.timestep.setNt(Nt)
+
+    ds.other.include('fluid')
+
+    return ds
+
+
+def setupfindEQ(T_initial, tMax, Nt, n_D, n_B, B, a, r_0, Nr):
+    ds = DREAMSettings()
+    ds.collisions.collfreq_type = Collisions.COLLFREQ_TYPE_PARTIALLY_SCREENED  # Är detta rätt?
+
+    ds.eqsys.n_cold.setType(ColdElectrons.TYPE_SELFCONSISTENT)
+
+    ds.eqsys.T_cold.setPrescribedData(T_initial, times=t)
+
+    ds.eqsys.n_i.setIonization(Ions.IONIZATION_MODE_FLUID)
+    ds.eqsys.n_i.addIon(name='D', Z=1, iontype=Ions.IONS_PRESCRIBED_FULLY_IONIZED, n=n_D)
+    ds.eqsys.n_i.addIon(name='B', Z=4, iontype=Ions.IONS_PRESCRIBED_FULLY_IONIZED, n=n_B)
+
+    ds.eqsys.n_re.setAvalanche(avalanche=Runaways.AVALANCHE_MODE_FLUID_HESSLOW)
+
+    ds.eqsys.n_re.setDreicer(Runaways.DREICER_RATE_CONNOR_HASTIE)
+
+    ds.hottailgrid.setEnabled(False)
+    ds.runawaygrid.setEnabled(False)
+
+    ds.radialgrid.setB0(B)  # , times=t)
+    ds.radialgrid.setMinorRadius(a)
+    ds.radialgrid.setMajorRadius(r_0)
+    ds.radialgrid.setWallRadius(a)
+    ds.radialgrid.setNr(Nr)
+
+    ds.solver.setType(Solver.LINEAR_IMPLICIT)
+
+    ds.timestep.setTmax(tMax)
+    ds.timestep.setNt(Nt)
+
+    ds.other.include('fluid')
 
     return ds
