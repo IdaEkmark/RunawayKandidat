@@ -17,6 +17,20 @@ import DREAM.Settings.Equations.ColdElectronTemperature as ColdElectronTemperatu
 import DREAM.Settings.Equations.ElectricField as ElectricField
 import DREAM.Settings.Equations.IonSpecies as Ions
 from generate_Teq import generate_current_profile_fun
+import time
+import os
+
+##Make Parent Folder##
+month = time.localtime()[1]
+day = time.localtime()[2]
+hours = time.localtime()[3]
+minutes = time.localtime()[4]
+mmdd = str(month) + '_' + str(day)
+sshh = str(hours) + ':' + str(minutes)
+parent_folder = 'SC_' + mmdd
+current_directory = os.getcwd()
+if os.path.isdir(parent_folder) == False:
+    os.mkdir(current_directory + '/' + parent_folder)
 
 #### Physical parameters ####
 
@@ -66,13 +80,19 @@ do,Teq,Eeq = generate_current_profile_fun(Ip_wish,current_profile,radie,T_initia
 
 
 ########################################################################################################################
-                                                    #PLOTS#
+                                                    #PLOTS N' DATA#
 ########################################################################################################################
+
+child_folder = 'aD' + str(round(a_D, 1)) + '_Ipwish' + str(round(Ip_wish, 1)) + '_T' + str(round(T_initial,
+                                                                                                            1)) + '_' + sshh  # Inside parent-folder.
+os.mkdir(current_directory + '/' + parent_folder + '/' + child_folder)
+
 ax = do.eqsys.I_p.plot()
 ax2 = plt.plot(t, np.linspace(1, 1, Nt + 1) * Ip_wish)  # Want to compare to plasma current at ITER
 plt.legend(['I_p', 'ITER I_p'])
 plt.xlim(0, tMax)
 plt.ylim(0,5e6)
+plt.savefig(parent_folder + '/' + child_folder + '/Ip')
 plt.show()
 
 
@@ -80,9 +100,11 @@ ax = do.eqsys.T_cold.plot()
 ax2 = plt.plot(t, np.linspace(1, 1, Nt + 1) * Teq)  # Want to compare to plasma current at ITER
 plt.xlim(0, tMax)
 plt.ylim(0,6000)
+plt.savefig(parent_folder + '/' + child_folder + '/T')
 plt.show()
 
 ax = do.eqsys.E_field.plot()
 ax2 = plt.plot(t, np.linspace(1, 1, Nt + 1) * Eeq)  # Want to compare to plasma current at ITER
 plt.ylim(bottom=0)
+plt.savefig(parent_folder + '/' + child_folder + '/E')
 plt.show()
