@@ -31,7 +31,10 @@ def generate_current_profile_fun(I_p,current_profile,radie,DREAM_settings_object
     dr = do_conductivity.grid.dr
     r = do_conductivity.grid.r
     #r_f = do_conductivity.grid.r_f
-    inter_cub_current_profile = interp1d(radie, current_profile, kind='cubic')
+    if len(radie) < 4:
+        inter_cub_current_profile = interp1d(radie, current_profile, kind='linear')
+    else:
+        inter_cub_current_profile = interp1d(radie, current_profile, kind='cubic')
     j_prof_inter = inter_cub_current_profile(r)
     current_profile_integral = np.sum(j_prof_inter*VpVol*dr)
     j_0 = 2 * np.pi * I_p / current_profile_integral
