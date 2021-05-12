@@ -67,7 +67,7 @@ Z_eff_list     = []
 do_bra_list    = []  # List to save the best DREAM-output-object for each a_D
 
 # Analyzing the runaway current for different proportions of deuterium and beryllium
-a_D_for=np.linspace(0.7,1,num=61) #np.array([0.5,0.6,2/3,0.70,0.8,0.9,1]) # Proportion of ions that are deuterium
+a_D_for=np.linspace(0.7,1,num=20)#151) #np.array([0.5,0.6,2/3,0.70,0.8,0.9,1]) # Proportion of ions that are deuterium
 for a_D in a_D_for:
     Z_D     = 1                      # Atomic number of deuterium
     Z_B     = 4                      # Atomic number of beryllium
@@ -75,7 +75,7 @@ for a_D in a_D_for:
     n_tot   = n_e/(Z_D*a_D+Z_B*a_B)  # Total ion density
     n_D_for = a_D*n_tot              # Deuterium density
     n_B_for = a_B*n_tot              # Beryllium density
-    Z_eff=a_D*Z_D+a_B*Z_B
+    Z_eff=(a_D*Z_D**2+a_B*Z_B**2)/(a_D*Z_D+a_B*Z_B)
     Z_eff_list.append(Z_eff)
 
     n_D = []  # Making array to define constant Deuterium-density on two radial coordinates
@@ -92,10 +92,10 @@ for a_D in a_D_for:
     # Sweep detalis
     D0min    = 0.013                       # Lower limit of D0 sweep
     D0max    = 0.023                    # Upper limit of D0 swep
-    D0num    = 51                     # Number of D0-steps
+    D0num    = 20#151                     # Number of D0-steps
     I_re0min = 5.4e5                     # Lower limit of I_re0 sweep
     I_re0max = 6.1e5                   # Upper limit of I_re0 sweep
-    I_re0num = 176                 # Number of I_re0-steps
+    I_re0num = 20#151                 # Number of I_re0-steps
     index    = np.linspace(1,1,num=1)  # Number of iterations
     I_re_for = 6e5                     # Initial runaway current [A]
     for i in index:  # Iterating to find best D0 from previous best I_re0 I
