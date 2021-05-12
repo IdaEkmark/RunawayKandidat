@@ -67,7 +67,7 @@ Z_eff_list     = []
 do_bra_list    = []  # List to save the best DREAM-output-object for each a_D
 
 # Analyzing the runaway current for different proportions of deuterium and beryllium
-a_D_for=np.linspace(0.5,1,num=201) #np.array([0.5,0.6,2/3,0.70,0.8,0.9,1]) # Proportion of ions that are deuterium
+a_D_for=np.linspace(0.7,1,num=61) #np.array([0.5,0.6,2/3,0.70,0.8,0.9,1]) # Proportion of ions that are deuterium
 for a_D in a_D_for:
     Z_D     = 1                      # Atomic number of deuterium
     Z_B     = 4                      # Atomic number of beryllium
@@ -90,12 +90,12 @@ for a_D in a_D_for:
     r   = np.linspace(0,a,num=Nr+1)  # Radial coordinates for diffusion
 
     # Sweep detalis
-    D0min    = 0.01                       # Lower limit of D0 sweep
-    D0max    = 0.025                    # Upper limit of D0 swep
-    D0num    = 201                     # Number of D0-steps
+    D0min    = 0.013                       # Lower limit of D0 sweep
+    D0max    = 0.023                    # Upper limit of D0 swep
+    D0num    = 51                     # Number of D0-steps
     I_re0min = 5.4e5                     # Lower limit of I_re0 sweep
-    I_re0max = 6.2e5                   # Upper limit of I_re0 sweep
-    I_re0num = 201                 # Number of I_re0-steps
+    I_re0max = 6.1e5                   # Upper limit of I_re0 sweep
+    I_re0num = 176                 # Number of I_re0-steps
     index    = np.linspace(1,1,num=1)  # Number of iterations
     I_re_for = 6e5                     # Initial runaway current [A]
     for i in index:  # Iterating to find best D0 from previous best I_re0 I
@@ -154,9 +154,9 @@ for a_D in a_D_for:
 
 #### Manage result ####
 # Save data
-np.savetxt('pr_6apr/Z_D0_Ire0/Z_eff_list.txt', Z_eff_list, delimiter=',')
-np.savetxt('pr_6apr/Z_D0_Ire0/D0_bra_list.txt', D0_bra_list, delimiter=',')
-np.savetxt('pr_6apr/Z_D0_Ire0/I_re0_bra_list.txt', I_re0_bra_list, delimiter=',')
+np.savetxt('pr_12maj/Test2/Z_eff_list.txt', Z_eff_list, delimiter=',')
+np.savetxt('pr_12maj/Test2/D0_bra_list.txt', D0_bra_list, delimiter=',')
+np.savetxt('pr_12maj/Test2/I_re0_bra_list.txt', I_re0_bra_list, delimiter=',')
 
 # Plot D0 as function of Z_eff and I_re0 as function of D0 and as function of Z_eff
 plt.plot(Z_eff_list,D0_bra_list)
