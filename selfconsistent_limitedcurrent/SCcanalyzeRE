@@ -1,0 +1,573 @@
+import numpy as np
+import sys
+import matplotlib.pyplot as plt
+
+
+sys.path.append('../../py/')
+
+from DREAM.DREAMSettings import DREAMSettings
+from DREAM import runiface
+import DREAM.Settings.Equations.IonSpecies as Ions
+import DREAM.Settings.Equations.RunawayElectrons as Runaways
+import DREAM.Settings.Solver as Solver
+import DREAM.Settings.CollisionHandler as Collisions
+import DREAM.Settings.TransportSettings as Transport
+import DREAM.Settings.Equations.ColdElectrons as ColdElectrons
+import DREAM.Settings.Equations.ColdElectronTemperature as ColdElectronTemperature
+import DREAM.Settings.Equations.ElectricField as ElectricField
+from generate_Teq import generate_current_profile_fun
+import time
+import os
+from math import erf
+from csetups import setupRE_FULLY_IONIZED
+from csetups import SCsetupRE_FULLY_IONIZED
+from csetups import SC2setupRE_FULLY_IONIZED
+from csetups import SCsetupRE
+from csetups import SC2setupRE
+
+
+##Make Parent Folder##
+month = time.localtime()[1]
+day = time.localtime()[2]
+hours = time.localtime()[3]
+minutes = time.localtime()[4]
+seconds = time.localtime()[5]
+mmdd = str(month) + '_' + str(day)
+sshh = str(hours) + ':' + str(minutes)
+ssmmhh = str(hours) + ':' + str(minutes) + ':' + str(seconds)
+parent_folder = 'SC_' + mmdd
+current_directory = os.getcwd()
+if os.path.isdir(parent_folder) == False:
+    os.mkdir(current_directory + '/' + parent_folder)
+
+#### Physical parameters ####
+
+# Universal constants
+e   = 1.60217662e-19  # Elementary charge [C].
+c   = 299792458       # Speed of light [m/s].
+m_e = 9.10938356e-31  # Electron mass [kg].
+
+# Assumed constants in de Vries
+A_c    = 3                          # Plasma cross section [m^2].
+r_0    = 3#6.2                      # Major radius [m].
+a      = np.sqrt(A_c/np.pi) #2      # Minor radius [m].
+B      = 2.4#5.3                    # Magnetic field [T].
+
+# Time and radial parameters for EQ simulation only
+tMax_EQ = 0.1                                   # Simulation time [s].
+Nt_EQ   = 1000                                  # Number of time steps.
+Nr   = 1                                        # Number of radial steps.
+t_EQ    = np.linspace(0,tMax_EQ,num=Nt_EQ+1)    # Time vector for time depending data.
+
+
+## Standard ion settings
+Z_D = 1
+Z_B = 4
+a_D = 0.9           # Proportion of ions that are deuterium 0.99.
+a_B = 1 - a_D       # Proportion of ions that are beryllium.
+#n_e = 3.2e18
+n_tot = 2e18        # Ion density.
+n_D = a_D * n_tot   # Deuterium density.
+n_B = a_B * n_tot
+
+Ip_wish = 3.2e6                         # The current being aimed for.
+current_profile = np.linspace(1,1,2)    # Required for the EQ code to work.
+radie = np.linspace(0,a,2)              # Required for the EQ code to work.
+T_guess = 5000                          # Set a guess value for EQ-code.
+
+
+
+Div = []
+T_initial_RE = 5                                    # Initial cold elecron temperature in RE simulation [eV].
+tMax_RE = 3.2                                       # Max time in RE sim2 [s].
+Nt_RE = 10000                                       # Number of timesteps in RE sim2.
+t_RE    = np.linspace(0,tMax_RE,num=Nt_RE+1)        # Time vector for time depending data in RE sim2.
+
+'''
+########################################################################################################################
+                                        #Finding the E-T point of equilibrium for Ip_wish [GRUNDKOD] [EQ]#
+########################################################################################################################
+
+do,T_EQ,E_EQ = generate_current_profile_fun(Ip_wish,current_profile,radie,T_guess, tMax_EQ, Nt_EQ, n_D, n_B, B, a, r_0, Nr)
+V_loop_wall_EQ = E_EQ*(2*np.pi*r_0)#do.eqsys.V_loop_w[-1]
+s = input('T_EQ is ' + str(T_EQ))
+s = input('E_EQ is ' + str(E_EQ))
+print(' y \n o \n o \n o \n o \n o \n o \n o \n o \n o \n o \n o \n o \n o \n o \n o \n o \n !')
+'''
+########################################################################################################################
+                                        #SETUP FOR THE CURRENT OPTIMIZATION CODE#
+########################################################################################################################
+
+## Equilibrium values found from code above
+
+#T_EQ=4343.33103153                                         # Equilibrium temperature for E = 0.0028 and Ip = 3.2e6. ntot = 5e18
+#E_EQ=0.005799                                              # Equilibrium electric field for T = 5480 and Ip = 3.2e6.
+
+#T_EQ = 16244.926                                           # Equilibrium for ntot = 1e18
+#E_EQ = 0.00094737
+
+T_EQ = 9232.279                                             # Equilibrium for ntot = 2e18
+E_EQ = 0.00205
+
+#T_EQ = 6617.7096                                           # Equilibrium for ntot = 3e18
+#E_EQ = 0.003236
+
+
+## Important parameters to be chosen for the coming simulations
+checkED = True                                                                          # E/E_D > 0.02 is checked at end
+V_loop_wall_start_vector = np.array([2.5])                                              # Initial voltage of the square pulse-esque voltage function.
+#aDvec = [0.99]
+#T_initial_RE_vec = [5,50,200]
+V_loop_wall_EQ = E_EQ*(2*np.pi*r_0)                                                     # Equilibrium V_loop derived from equilibrium E.
+#for V_loop_wall_RE, T_initial_RE in zip(V_loop_wall_start_vector, [200,200,50,50]):    # Trying out some Vloops and Tinitials.
+for V_loop_wall_RE, a_D in zip([1,1,1], [0.88,0.9,0.99]):                                # Trying out some Vloops and aD's.
+#for V_loop_wall_RE in V_loop_wall_start_vector:                                        # For constant aD and Tinitial.
+
+    ## Replacing densities
+    a_B = 1-a_D
+    n_D = a_D * n_tot
+    n_B = a_B * n_tot
+
+    E_initial_RE = V_loop_wall_RE/(2*np.pi*(r_0))       # The constant E for this iteration.
+
+    ####################################################################################################################
+                                                    # Find t when T reaches T_EQ #
+
+                                # METHOD: Interval of possible tMax that gets sliced after every iteration.
+                                # So we are looking to find the simulation in which the temperature hits
+                                # T_EQ right at the last time point.
+
+                                # Con: Simple problem gets overly complicated.
+                                # Pro: It's a precise way of doing it. (If temperature changes fast we want to run
+                                # ... simulations with high density of points around the time interval of interest)
+    ####################################################################################################################
+
+
+    tol = 0.01                          # Tolerance of the coming iteration.
+    Nt_try = 10000                      # Number of timesteps per simulation in the coming iteration.
+    ta = 0                              # Beginning-time of tMax interval.
+    tb = 10                             # Ending-time of tMax interval. Error message pops up if too short.
+
+    for T_initial_RE in np.linspace(T_initial_RE,T_initial_RE,1):                               # For normal run: Set to only T-initial/V_loop_wall_RE.
+        for V_loop_wall_RE in np.linspace(V_loop_wall_RE,V_loop_wall_RE,1):                     # These for-loops do nothing, only used for testing.
+            E_initial_RE = V_loop_wall_RE/(2*np.pi*(r_0))
+
+    ####################################################################################################################
+                                        #CHECK IF INTERVAL OR VLOOP IS TOO SMALL#
+    ####################################################################################################################
+
+            ## Firstly checking if interval is too small ##
+            tMax_try = tb                   # Setting tMax to the ending time just to check if the interval is large enough.
+            t_try = np.linspace(0, tMax_try, Nt_try + 1)                                # Setting up corresponding time vector.
+            V_loop_wall_RE_V = V_loop_wall_RE * np.linspace(1, 1, Nt_try + 1)           # Setting up constant E-field for the dreamSettings obj.
+            #ds = SCsetupRE_FULLY_IONIZED(E_initial_RE, V_loop_wall_RE, T_initial_RE, t_try, n_D, n_B, B, a, r_0, Nr, tMax_try, Nt_try)     # Use this if you start fully ionized.
+            ds = SCsetupRE(E_initial_RE, V_loop_wall_RE, T_initial_RE, t_try, n_D, n_B, B, a, r_0, Nr, tMax_try, Nt_try)                    # Use this if your gas is initially not fully ionized.
+            do=runiface(ds,'o.h5',quiet=False)                      # Run DREAM with these settings.
+            T_last = do.eqsys.T_cold[-1]                            # Acquire last temperature.
+            print(str(T_initial_RE))
+
+
+    if T_last < T_EQ:                                       # If it is too small, the interval needs to be longer, or V_loop needs to increase.
+        print('EXITED, VLOOP OR INTERVAL PROBABLY TOO SMALL')
+        ax = do.eqsys.T_cold.plot()
+        plt.savefig(parent_folder + '/T')
+        plt.show()
+        plt.clf()
+        np.savetxt(parent_folder + '/T.txt', do.eqsys.T_cold[:], delimiter=',')
+        exit()                                              # Must end execution of code.
+
+
+
+    ####################################################################################################################
+                                                #FIND THE tMax WHERE T = T_EQ#
+    ####################################################################################################################
+
+    tMax_try = (tb-ta)/2                                    # Test a tMax in middle of interval.
+    t_try = np.linspace(0, tMax_try, Nt_try + 1)            # Replace the time vector.
+
+    ## First run
+    #ds = SCsetupRE_FULLY_IONIZED(E_initial_RE, V_loop_wall_RE, T_initial_RE, t_try, n_D, n_B, B, a, r_0, Nr, tMax_try, Nt_try)     # Use this if you start fully ionized.
+    ds = SCsetupRE(E_initial_RE, V_loop_wall_RE, T_initial_RE, t_try, n_D, n_B, B, a, r_0, Nr, tMax_try, Nt_try)                    # Use this if your gas is initially not fully ionized.
+    ds.save('settings_findtmax.h5')
+
+    i=0                                                     # Index that gets used just so that fromOutput later on uses the correct output.
+                                                            # Because if a ds is copied from another ds that has used fromOutput,
+                                                            # it will use the output with the same path as the one used in the first ds.
+                                                            # Thus the path must not be overwritten with an unintended file.
+
+    do = runiface(ds, 'REH5/output_findtmax' + str(i) +'.h5', quiet=False)
+    T_last = do.eqsys.T_cold[-1]                            # Acquire last temperature.
+    Ip_last = do.eqsys.I_p[-1]                              # Acquire last plasma current.
+
+    while abs(T_last - T_EQ) > tol:                         # Ends iteration when tMax is close enough to t where T = T_EQ.
+        print('\n TtTt \n TtTt \n TtTt \n TtTt \n TtTt '
+              '\n TtTt \n TtTt \n TtTt \n TtTt \n TtTt '
+              '\n TtTt \n TtTt \n TtTt \n TtTt ')           # Visible in terminal to show where we are in code.
+        if T_last < T_EQ:                                   # tMax is TOO SHORT.
+
+            ta = ta + tMax_try                                                      # If tMax is too short, put the left edge of the interval in the middle of the former one.
+
+            tMax_try = abs(tb - ta)/2                                               # Test a new tMax in the middle of the new interval.
+            ds.fromOutput('REH5/output_findtmax' + str(i) +'.h5')                   # Start the time from the output of the last iteration.
+            ds.timestep.setTmax(tMax_try)
+            t_try = np.linspace(0, tMax_try, Nt_try + 1)                            # Replacing t
+            V_loop_wall_RE_V = V_loop_wall_RE * np.linspace(1, 1,Nt_try + 1)        # Replacing V.
+            ds.save('settings_findtmax.h5')
+            i = i + 1                                                               # Increase the index, so that the other if-block
+                                                                                    # doesn't use the output from under this text. (Remember, fromOutput is used on the formed i)
+            do = runiface(ds, 'REH5/output_findtmax' + str(i) +'.h5', quiet=False)  # Run DREAM
+
+            T_last = do.eqsys.T_cold[-1]                                            # Acquire last temperature
+            Ip_last = do.eqsys.I_p[-1]                                              # Acquire last plasma current
+
+
+
+        if T_last > T_EQ:                                   # tMax is TOO LONG
+            tb = tb - tMax_try                              # If tMax is too long, place right edge of interval in middle of the former one.
+            tMax_try = abs(tb - ta) / 2                     # Try a new tMax in the middle of this interval.
+            ds.timestep.setTmax(tMax_try)
+            t_try = np.linspace(0, tMax_try, Nt_try + 1)                                # Replace the time vector.
+            E_t = E_initial_RE * np.linspace(1, 1, Nt_try + 1)                          # Replace the electric field.
+            #ds.eqsys.E_field.setPrescribedData(efield=E_t, times=t_try)                # Replace the elctric field in ds.
+            do = runiface(ds, 'REH5/output_findtmax' + str(i) +'.h5', quiet=False)      # Run DREAM
+            T_last = do.eqsys.T_cold[-1]                    # Acquire the last temperature.
+
+
+
+
+    tMax_HIT = (ta + tb)/2                          # The time where T_EQ is hit
+    tMax_RE = tMax_HIT + tMax_HIT                   # The EQ-time plus a some extra time for good measure
+    t_RE = np.linspace(0,tMax_RE,Nt_RE+1)
+    print('The approximation of tMax became ' + str(tMax_RE) + ', and the temperature at this time was ' + str(T_last))
+    #sec = input('Enter anything \n')     # Wait so that info is seen
+
+    #ds = SCsetupRE_FULLY_IONIZED(E_initial_RE, V_loop_wall_RE, T_initial_RE, t_try, n_D, n_B, B, a, r_0, Nr, tMax_RE, Nt_RE)
+    #ds = SCsetupRE(E_initial_RE, V_loop_wall_RE, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE, Nt_RE)  # Prescribed E, self cons. T.
+    #do=runiface(ds,'o.h5',quiet=False)                      # Run DREAM with these settings.
+
+    ####################################################################################################################
+                                            # FIND THE BEST VOLTAGE FUNCTION #
+    ####################################################################################################################
+
+
+
+    ## Parameters
+    manyV = True                        # Are you satisfied with your non-optimized V-function?
+    Delay_factor = 1    # Factored onto the time at which the voltage switch happens.
+    E_EQ_FACTOR = 0     # Multiplied to the last E (or V).
+    da = 0.1            # Lowest possible Delay_factor
+    db = 1.2            # Highest possible Delay_factor
+    tol = 1e5           # Tolerance of first Delay_factor iteration.
+    tol2 = 1e4          # Tolerance of second Delay_factor iteration.
+    q=1e100             # Size of difference.
+    q2=1e100            # Size of difference.
+    I_HIT = 0           # Initializing current when T_EQ is supposed to be hit.
+    tolE = 5e2          # Tolerance of E_EQ_FACTOR iteration.
+    variance = 1e100    # Size of slant of current curve.
+    aE = 0.2            # Lowest possible E_EQ_FACTOR
+    bE = 1              # Highest possible E_EQ_FACTOR
+
+
+    if manyV == True:           # "Do you want to optimize your V-function?"
+
+        ## Finding an acceptable voltage switch point
+
+        while abs(q) >= tol or I_HIT > Ip_wish:         # Iterate until current max-point is right under Ip_wish.
+            erfstrength = 100000000                     # A fast change in voltage was desired in this simulation.
+            Delay_factor = (da + db)/2                  # The delay factor changes when the voltage switch happens.
+                                                        # ... and is picked from the middle of a specified interval.
+            V_t = np.linspace(0, 0, Nt_RE + 1)
+
+
+            for i in range(0, Nt_RE + 1):               # Setting the voltage function as basically a square pulse.
+                V_t[i] = V_loop_wall_RE * (
+                            -erf((t_RE[i] / tMax_RE - tMax_HIT * Delay_factor / tMax_RE) * erfstrength) + 1) / 2 + E_EQ * (
+                                     2 * np.pi * (r_0)) * E_EQ_FACTOR * (
+                                     erf((t_RE[i] / tMax_RE - tMax_HIT * Delay_factor / tMax_RE) * erfstrength) + 1) / 2
+            # plt.plot(t_RE, V_t)
+            # plt.show()
+
+            #ds = SC2setupRE_FULLY_IONIZED(E_initial_RE, V_t, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE, Nt_RE)  # Use this if you start fully ionized.
+            ds = SC2setupRE(E_initial_RE, V_t, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE, Nt_RE)  # Use this if your gas is initially not fully ionized.
+
+            ds.save('settings_RE2.h5')
+            do = runiface(ds, 'output_RE2.h5', quiet=False)                         # Run simulation.
+            print('\n erftest \n erftest \n erftest \n erftest \n erftest '
+                  '\n erftest \n erftest \n erftest \n erftest \n erftest '
+                  '\n erftest \n erftest \n erftest \n erftest \n erftest ')        # Visible in terminal.
+
+            variance = abs(do.eqsys.I_p[-1] - do.eqsys.I_p[-100])                   # [Only used further down] How straight the current is.
+            I_HIT = do.eqsys.I_p[round(Delay_factor*tMax_HIT*Nt_RE/tMax_HIT)]       # ~Current when voltage switch happens.
+            I_MAX = np.amax(do.eqsys.I_p[:])                                        # Maximum current during sim.
+
+            increase = do.eqsys.I_p[-1] - do.eqsys.I_p[-100]                        # Is EQ_FACTOR = 0 enough?
+
+
+            if increase > 0:                        # If the current increases we use approximation of current at switch-point (I_HIT).
+                xpoint = tMax_HIT * Delay_factor    # For plots.
+                ypoint = I_HIT                      # For plots.
+                q = I_HIT - Ip_wish                 # Difference to minimize.
+
+                if I_HIT < Ip_wish:                 # Minimizing by halving the intervals.
+                    da = Delay_factor
+
+                if I_HIT > Ip_wish:
+                    db = Delay_factor
+
+            if increase <= 0:
+
+                xpoint = tMax_HIT * Delay_factor    # For plots.
+                ypoint = I_MAX                      # For plots.
+                q = I_MAX - Ip_wish                 # Difference to minimize.
+
+                if I_MAX < Ip_wish:                 # Minimizing by halving the intervals.
+                    da = Delay_factor
+
+                if I_MAX > Ip_wish:
+                    db = Delay_factor
+
+            #plt.plot(t_RE, do.eqsys.I_p[:])
+            #plt.plot(xpoint,ypoint,'o')            # Check where your I_HIT is.
+            #plt.show()
+
+
+        Delay_factor = a              # Set Delay_factor to the acceptable value.
+
+
+
+
+        ## Finding an acceptable end voltage after switch
+        while abs(variance) > tolE:             # Iterate until current is straight enough.
+            E_EQ_FACTOR = (aE + bE)/2           # Same algorithm as above, but with E_EQ_FACTOR (note its effect on V_T).
+            erfstrength = 100000000
+
+            V_t = np.linspace(0, 0, Nt_RE + 1)
+
+            for i in range(0, Nt_RE + 1):
+                V_t[i] = V_loop_wall_RE * (
+                        -erf((t_RE[i] / tMax_RE - tMax_HIT * Delay_factor / tMax_RE) * erfstrength) + 1) / 2 + E_EQ * (
+                                 2 * np.pi * (r_0)) * E_EQ_FACTOR * (
+                                 erf((t_RE[i] / tMax_RE - tMax_HIT * Delay_factor / tMax_RE) * erfstrength) + 1) / 2
+            # plt.plot(t_RE, V_t)
+            # plt.show()
+
+            #ds = SC2setupRE_FULLY_IONIZED(E_initial_RE, V_t, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE, Nt_RE)  # Use this if you start fully ionized.
+            ds = SC2setupRE(E_initial_RE, V_t, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE,Nt_RE)  # Use this if your gas is initially not fully ionized.
+            ds.save('settings_RE2.h5')
+            do = runiface(ds, 'output_RE2.h5', quiet=False)
+            print('\n erftest \n erftest \n erftest \n erftest \n erftest '
+                  '\n erftest \n erftest \n erftest \n erftest \n erftest '
+                  '\n erftest \n erftest \n erftest \n erftest \n erftest ')
+
+            variance = do.eqsys.I_p[-1] - do.eqsys.I_p[-100]
+
+            if variance >= 0:
+                bE = E_EQ_FACTOR
+
+            if variance < 0:
+                aE = E_EQ_FACTOR
+
+            print('variance ' + str(variance))
+            #plt.plot(t_RE, do.eqsys.I_p[:])
+            #plt.show()
+
+
+
+        ## A better delay must now be found with the new E_EQ_FACTOR, because the factor also slightly affects I_HIT.
+        da = 0.2
+        db = 1
+
+        ## Delay factor optimization just like before, except now we only use I_MAX, because the current must
+        ## ... stay below Ip_wish.
+        while abs(q2) >= tol2:
+            erfstrength = 100000000
+            Delay_factor = (da + db)/2
+            V_t = np.linspace(0, 0, Nt_RE + 1)
+
+            #E_EQ_FACTOR = 8 / 30  # 2/30
+            for i in range(0, Nt_RE + 1):
+                V_t[i] = V_loop_wall_RE * (
+                            -erf((t_RE[i] / tMax_RE - tMax_HIT * Delay_factor / tMax_RE) * erfstrength) + 1) / 2 + E_EQ * (
+                                     2 * np.pi * (r_0)) * E_EQ_FACTOR * (
+                                     erf((t_RE[i] / tMax_RE - tMax_HIT * Delay_factor / tMax_RE) * erfstrength) + 1) / 2
+            # plt.plot(t_RE, V_t)
+            # plt.show()
+
+            #ds = SC2setupRE_FULLY_IONIZED(E_initial_RE, V_t, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE, Nt_RE)  # Use this if you start fully ionized.
+            ds = SC2setupRE(E_initial_RE, V_t, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE, Nt_RE)  # Use this if your gas is initially not fully ionized.
+            ds.save('settings_RE2.h5')
+            do = runiface(ds, 'output_RE2.h5', quiet=False)
+            print('\n erftest \n erftest \n erftest \n erftest \n erftest '
+                  '\n erftest \n erftest \n erftest \n erftest \n erftest '
+                  '\n erftest \n erftest \n erftest \n erftest \n erftest ')
+
+            variance = abs(do.eqsys.I_p[-1] - do.eqsys.I_p[-100])
+
+            I_HIT = do.eqsys.I_p[round(Delay_factor*tMax_HIT*Nt_RE/tMax_HIT)]
+            I_MAX = np.amax(do.eqsys.I_p[:])
+
+            print(str(abs(q)))
+            print(str(do.eqsys.I_p[round(Delay_factor*tMax_HIT*Nt_RE/tMax_HIT)]))
+
+
+            increase = do.eqsys.I_p[-1] - do.eqsys.I_p[-100]
+
+            xpoint = tMax_HIT * Delay_factor
+            ypoint = I_MAX
+            q2 = I_MAX - Ip_wish
+
+            if I_MAX < Ip_wish:
+                da = Delay_factor
+
+            if I_MAX > Ip_wish:
+                db = Delay_factor
+
+            #plt.plot(t_RE, do.eqsys.I_p[:])
+            #plt.plot(xpoint,ypoint,'o')
+            #plt.show()
+
+        Delay_factor= da#smallQDelay_factor
+
+    else:                                                                           #If you want to run with just one pair of E- and Delay factors, this just sets up a simple simulation.
+
+        Nt_RE = 10000  # Number of timesteps in RE sim2
+        t_RE = np.linspace(0, tMax_RE, Nt_RE + 1)  # Setting up corresponding time vector.
+        V_t = np.linspace(0, 0, Nt_RE + 1)
+
+
+        for i in range(0, Nt_RE + 1):
+            V_t[i] = V_loop_wall_RE * (-erf((t_RE[i] / tMax_RE - tMax_HIT * Delay_factor / tMax_RE) * 1000) + 1) / 2 + E_EQ * (
+                    2 * np.pi * (r_0)) * E_EQ_FACTOR * (
+                             erf((t_RE[i] / tMax_RE - tMax_HIT * Delay_factor / tMax_RE) * 1000) + 1) / 2
+
+        #ds = SC2setupRE_FULLY_IONIZED(E_initial_RE, V_t, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE, Nt_RE)  # Use this if you start fully ionized.
+        ds = SC2setupRE(E_initial_RE, V_t, T_initial_RE, t_RE, n_D, n_B, B, a, r_0, Nr, tMax_RE,Nt_RE)                  # Use this if your gas is initially not fully ionized.
+        ds.save('settings_RE2.h5')
+        do = runiface(ds, 'output_RE2.h5', quiet=False)
+
+    if np.amax(do.eqsys.E_field.norm('ED')[200:-1]) >= 0.02 and checkED == True:  # Notify user if E/E_D = 0.02 is found.
+        s = input('Found at ' + str(E_initial_RE) + 'and V ' + str(V_loop_wall_RE))
+        ax = do.eqsys.E_field.plot(norm='ED')
+        plt.show()
+
+
+########################################################################################################################
+                                #SAVING DATA IN CHILD FOLDER INSIDE PARENT FOLDER DATA#
+########################################################################################################################
+
+
+    child_folder = 'aD' + str(round(a_D, 2)) +'_TEQ: ' +  str(round(T_EQ,1)) + '_' + ssmmhh + '_Vstart: ' + str(round(V_loop_wall_RE,2)) + '_Tstart: ' + str(round(T_initial_RE)) + '_EQfac: ' + str(round(E_EQ_FACTOR,3)) + '_Dfac: ' + str(round(Delay_factor,3)) + '_ntot: ' + str(round(n_tot))   # Inside parent-folder.
+
+    os.mkdir(current_directory + '/' + parent_folder + '/' + child_folder)
+
+    np.savetxt(parent_folder + '/' + child_folder + '/T_cold.txt', do.eqsys.T_cold[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/E.txt', do.eqsys.E_field[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/Ectot.txt', do.other.fluid.Ectot[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/Ecfree.txt', do.other.fluid.Ecfree[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/Eceff.txt', do.other.fluid.Eceff[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/nre.txt', do.eqsys.n_re[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/Ip.txt', do.eqsys.I_p[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/EoverED.txt', do.eqsys.E_field.norm('ED')[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/GammaAva.txt', do.other.fluid.GammaAva[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/gammaDreicer.txt', do.other.fluid.gammaDreicer[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/runawayRate.txt', do.other.fluid.runawayRate[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/lnLamda.txt', do.other.fluid.lnLambdaT[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/Zeff.txt', do.other.fluid.Zeff[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/ne.txt', do.eqsys.n_cold[:], delimiter=',')
+    np.savetxt(parent_folder + '/' + child_folder + '/t.txt', t_RE, delimiter=',')
+    #np.savetxt(parent_folder + '/' + child_folder + '/niB.txt', do.eqsys.n_i['B'][:], delimiter=',')
+
+########################################################################################################################
+                                #SAVING PLOTS IN CHILD FOLDER INSIDE PARENT FOLDER DATA#
+########################################################################################################################
+
+
+    ax = do.eqsys.I_p.plot()
+    ax2 = plt.plot(t_RE, np.linspace(1, 1, Nt_RE + 1) * Ip_wish)  # Want to compare to plasma current at ITER
+    plt.legend(['I_p', 'ITER I_p'])
+    #plt.xlim(0, tMax_RE)
+    #plt.ylim(0,5e6)
+    plt.savefig(parent_folder + '/' + child_folder + '/Ip')
+    #plt.show()
+    plt.clf()
+
+    ax = do.eqsys.n_i['B'].plot()
+    #ax2 = plt.plot(t_RE, np.linspace(1, 1, Nt + 1) * Ip_wish)  # Want to compare to plasma current at ITER
+    #plt.legend(['I_p', 'ITER I_p'])
+    #plt.xlim(0, tMax)
+    #plt.ylim(0,5e6)
+    plt.savefig(parent_folder + '/' + child_folder + '/niB')
+    #plt.show()
+    plt.clf()
+
+    ax = do.eqsys.T_cold.plot()
+    ax2 = plt.plot(t_RE, np.linspace(1, 1, Nt_RE + 1) * T_EQ)  # Want to compare to plasma current at ITER
+    #plt.xlim(0, tMax_RE)
+    #plt.ylim(0,6000)
+    plt.savefig(parent_folder + '/' + child_folder + '/T')
+    #plt.show()
+    plt.clf()
+
+    ax = do.eqsys.E_field.plot()
+    ax2 = plt.plot(t_RE, np.linspace(1, 1, Nt_RE + 1) * E_EQ)  # Want to compare to plasma current at ITER
+    plt.ylim(bottom=0)
+    plt.savefig(parent_folder + '/' + child_folder + '/E')
+    #plt.show()
+    plt.clf()
+
+    ax = do.eqsys.n_re.plot()
+    #ax2 = plt.plot(t_RE, np.linspace(1, 1, Nt + 1) * E_EQ)  # Want to compare to plasma current at ITER
+    #plt.ylim(bottom=0)
+    plt.savefig(parent_folder + '/' + child_folder + '/nre')
+    #plt.show()
+    plt.clf()
+
+    ax = do.eqsys.E_field.plot()
+    ax2 = do.other.fluid.Eceff.plot()
+    ax3 = do.other.fluid.Ecfree.plot()
+    ax4 = do.other.fluid.Ectot.plot()
+    plt.legend(['E', 'Eceff', 'Ecfree', 'Ectot'])
+    #ax2 = plt.plot(t_RE, np.linspace(1, 1, Nt + 1) * E_EQ)  # Want to compare to plasma current at ITER
+    #plt.ylim(top=0.015)
+    #plt.ylim(bottom=0)
+    plt.savefig(parent_folder + '/' + child_folder + '/E')
+    #plt.show()
+    plt.clf()
+
+    ax = do.other.fluid.GammaAva.plot()
+    plt.savefig(parent_folder + '/' + child_folder + '/gammaAva')
+    #plt.show()
+    plt.clf()
+
+    ax = do.other.fluid.gammaDreicer.plot()
+    plt.savefig(parent_folder + '/' + child_folder + '/gammaDre')
+    #plt.show()
+    plt.clf()
+
+    ax = do.other.fluid.runawayRate.plot()
+    plt.savefig(parent_folder + '/' + child_folder + '/runawayRate')
+    #plt.show()
+    plt.clf()
+
+    ax = do.other.fluid.lnLambdaC.plot()
+    ax2 = do.other.fluid.lnLambdaT.plot()  # Want to compare to plasma current at ITER
+    plt.legend(['lnLambdaC', 'lnLambdaT'])
+    #plt.xlim(0, tMax_RE)
+    #plt.ylim(0,5e6)
+    plt.savefig(parent_folder + '/' + child_folder + '/lnLambda')
+    #plt.show()
+    plt.clf()
+
+    ax = do.other.fluid.Zeff.plot()
+    plt.savefig(parent_folder + '/' + child_folder + '/Zeff')
+    #plt.show()
+    plt.clf()
+
+    ax = do.eqsys.E_field.plot(norm='ED')
+    plt.savefig(parent_folder + '/' + child_folder + '/EoverED')
+    plt.clf()
+
+    ax = do.eqsys.n_cold.plot()
+    plt.savefig(parent_folder + '/' + child_folder + '/ne')
+    plt.clf()
+
